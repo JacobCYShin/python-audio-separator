@@ -40,12 +40,6 @@ RUN pip install -r requirements.txt
 RUN mkdir -p /tmp/audio-separator-models
 RUN mkdir -p /tmp/output
 
-# 환경 변수 설정
-ENV AUDIO_SEPARATOR_MODEL_DIR=/tmp/audio-separator-models
-ENV PYTHONPATH=/workspace
-ENV BUILD_TIMESTAMP=$(date +%s)
-ENV CLEAR_CACHE=true
-
 # 모델 다운로드를 위한 테스트 실행 (빌드 시점)
 RUN LOCAL_TEST=true python3 handler.py
 
