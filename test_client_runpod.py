@@ -138,6 +138,12 @@ class AudioSeparatorRunPodClient:
                         print("작업이 진행 중입니다. 동기식 응답을 기다리는 중...")
                         # 동기식 응답을 기다리기 위해 더 긴 타임아웃으로 재시도
                         return self._wait_for_sync_response(payload)
+                    elif response_json['status'] == 'COMPLETED':
+                        print("작업이 완료되었습니다!")
+                        return response_json
+                    elif response_json['status'] == 'FAILED':
+                        print("작업이 실패했습니다.")
+                        return {"error": "Job failed", "details": response_json}
                         
             except Exception as e:
                 print(f"응답 JSON 파싱 실패: {e}")

@@ -239,11 +239,11 @@ def handle_advanced_separate(job_input):
             voc_inst = separator_instance.separate(input_file)
             logger.info(f"Vocals/Instrumental 분리 완료: {len(voc_inst)}개 파일 생성")
             
-            # 이름 통일 (파일 이름 변경 제거, 생성된 파일 그대로 사용)
+            # 파일 경로 설정 (이동 없이 생성된 파일 그대로 사용)
             if len(voc_inst) >= 2:
                 instrumental_path = voc_inst[0]
                 vocals_path = voc_inst[1]
-                logger.info("Step 1 파일 경로 설정 완료")
+                logger.info(f"Step 1 파일 경로 설정: {instrumental_path}, {vocals_path}")
             
             # Step 2: Lead / Backing Vocal 분리
             logger.info("[Step 2] Lead / Backing Vocal 분리")
@@ -254,7 +254,7 @@ def handle_advanced_separate(job_input):
             if len(backing_voc) >= 2:
                 backing_vocals_path = backing_voc[0]
                 lead_vocals_path = backing_voc[1]
-                logger.info("Step 2 파일 경로 설정 완료")
+                logger.info(f"Step 2 파일 경로 설정: {backing_vocals_path}, {lead_vocals_path}")
             
             # Step 3: DeReverb (잔향 제거)
             logger.info("[Step 3] DeReverb 처리")
@@ -265,7 +265,7 @@ def handle_advanced_separate(job_input):
             if len(voc_no_reverb) >= 2:
                 lead_vocals_no_reverb_path = voc_no_reverb[0]
                 lead_vocals_reverb_path = voc_no_reverb[1]
-                logger.info("Step 3 파일 경로 설정 완료")
+                logger.info(f"Step 3 파일 경로 설정: {lead_vocals_no_reverb_path}, {lead_vocals_reverb_path}")
             
             # Step 4: Denoise (노이즈 제거)
             logger.info("[Step 4] Denoise 처리")
@@ -276,9 +276,9 @@ def handle_advanced_separate(job_input):
             if len(voc_no_noise) >= 2:
                 lead_vocals_noise_path = voc_no_noise[0]
                 lead_vocals_no_noise_path = voc_no_noise[1]
-                logger.info("Step 4 파일 경로 설정 완료")
+                logger.info(f"Step 4 파일 경로 설정: {lead_vocals_noise_path}, {lead_vocals_no_noise_path}")
             
-            # 결과 파일들을 base64로 인코딩 (최종 결과만 반환)
+            # 결과 파일들을 base64로 인코딩 (생성된 파일 그대로 사용)
             result_files = {}
             output_files = [
                 ("Instrumental.wav", instrumental_path),
@@ -290,6 +290,9 @@ def handle_advanced_separate(job_input):
                     with open(file_path, "rb") as f:
                         file_data = f.read()
                         result_files[filename] = base64.b64encode(file_data).decode('utf-8')
+                        logger.info(f"파일 인코딩 완료: {filename}")
+                else:
+                    logger.warning(f"파일이 존재하지 않습니다: {file_path}")
             
             return {
                 "success": True,
