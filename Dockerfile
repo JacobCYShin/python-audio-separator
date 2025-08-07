@@ -45,7 +45,7 @@ ENV AUDIO_SEPARATOR_MODEL_DIR=/tmp/audio-separator-models
 ENV PYTHONPATH=/workspace
 
 # 모델 다운로드를 위한 테스트 실행 (빌드 시점)
-RUN python3 test_local_handler.py
+RUN LOCAL_TEST=true python3 handler.py
 
 # 포트 노출
 EXPOSE 8000
