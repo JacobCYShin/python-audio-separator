@@ -1,0 +1,32 @@
+# Andrew env
+.DS_Store
+.vscode
+
+# Andrew functional adds
+/tracks/
+/lyrics/
+/.cache/
+*.onnx
+*.pth
+*.wav
+/*.flac
+*.mp3
+tests/model-metrics/results
+tests/model-metrics/datasets
+temp_images
+
+# RunPod Serverless 관련 파일들 (로컬 테스트 파일만 제외)
+test_local_handler.py
+README_RunPod.md
+
+# 테스트 출력 파일들
+output/
+output_advanced/
+/tmp/output_test/
+/workspace/tmp/
+
+# 임시 파일들
+*.tmp
+*.temp
+temp_*
+tmp_*

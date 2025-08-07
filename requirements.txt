@@ -1,0 +1,10 @@
+audio-separator[gpu]
+torch>=2.3
+onnxruntime-gpu>=1.17
+numpy>=2
+librosa>=0.10
+requests>=2
+tqdm
+pydub>=0.25
+runpod
+--find-links https://download.pytorch.org/whl/torch_stable.html
