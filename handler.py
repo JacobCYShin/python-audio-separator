@@ -239,10 +239,10 @@ def handle_advanced_separate(job_input):
             voc_inst = separator_instance.separate(input_file)
             logger.info(f"Vocals/Instrumental 분리 완료: {len(voc_inst)}개 파일 생성")
             
-            # 이름 통일 (os.rename 사용)
+            # 이름 통일 (shutil.move 사용)
             if len(voc_inst) >= 2:
-                os.rename(voc_inst[0], instrumental_path)
-                os.rename(voc_inst[1], vocals_path)
+                shutil.move(voc_inst[0], instrumental_path)
+                shutil.move(voc_inst[1], vocals_path)
                 logger.info("Step 1 파일명 변경 완료")
             
             # Step 2: Lead / Backing Vocal 분리
@@ -252,8 +252,8 @@ def handle_advanced_separate(job_input):
             logger.info(f"Lead/Backing Vocal 분리 완료: {len(backing_voc)}개 파일 생성")
             
             if len(backing_voc) >= 2:
-                os.rename(backing_voc[0], backing_vocals_path)
-                os.rename(backing_voc[1], lead_vocals_path)
+                shutil.move(backing_voc[0], backing_vocals_path)
+                shutil.move(backing_voc[1], lead_vocals_path)
                 logger.info("Step 2 파일명 변경 완료")
             
             # Step 3: DeReverb (잔향 제거)
@@ -263,8 +263,8 @@ def handle_advanced_separate(job_input):
             logger.info(f"DeReverb 처리 완료: {len(voc_no_reverb)}개 파일 생성")
             
             if len(voc_no_reverb) >= 2:
-                os.rename(voc_no_reverb[0], lead_vocals_no_reverb_path)
-                os.rename(voc_no_reverb[1], lead_vocals_reverb_path)
+                shutil.move(voc_no_reverb[0], lead_vocals_no_reverb_path)
+                shutil.move(voc_no_reverb[1], lead_vocals_reverb_path)
                 logger.info("Step 3 파일명 변경 완료")
             
             # Step 4: Denoise (노이즈 제거)
@@ -274,8 +274,8 @@ def handle_advanced_separate(job_input):
             logger.info(f"Denoise 처리 완료: {len(voc_no_noise)}개 파일 생성")
             
             if len(voc_no_noise) >= 2:
-                os.rename(voc_no_noise[0], lead_vocals_noise_path)
-                os.rename(voc_no_noise[1], lead_vocals_no_noise_path)
+                shutil.move(voc_no_noise[0], lead_vocals_noise_path)
+                shutil.move(voc_no_noise[1], lead_vocals_no_noise_path)
                 logger.info("Step 4 파일명 변경 완료")
             
             # 결과 파일들을 base64로 인코딩 (최종 결과만 반환)
