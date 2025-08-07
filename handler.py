@@ -135,10 +135,9 @@ def handle_separate_audio(job_input):
         # Separator 인스턴스 로드
         separator_instance = load_separator()
         
-        # 모델이 다르면 새로 로드
-        if separator_instance.model_filename != model_filename:
-            logger.info(f"새 모델 로드: {model_filename}")
-            separator_instance.load_model(model_filename)
+        # 요청된 모델 로드
+        logger.info(f"모델 로드: {model_filename}")
+        separator_instance.load_model(model_filename)
         
         # 출력 형식 설정
         separator_instance.output_format = output_format

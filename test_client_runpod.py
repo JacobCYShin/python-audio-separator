@@ -95,9 +95,10 @@ class AudioSeparatorRunPodClient:
             # 요청 데이터 구성
             payload = {
                 "input": {
-                    "type": "advanced_separate",
+                    "type": "separate",
                     "audio_data": audio_data,
-                    "output_format": output_format
+                    "output_format": output_format,
+                    "model_filename": "Kim_Vocal_1.onnx"
                 }
             }
             
@@ -127,6 +128,7 @@ class AudioSeparatorRunPodClient:
             try:
                 response_json = response.json()
                 print(f"응답 내용: {response_json}")
+                print(f"응답 키 목록: {list(response_json.keys())}")
                 
                 # RunPod Serverless 비동기 처리 확인
                 if 'id' in response_json and 'status' in response_json:
@@ -144,6 +146,14 @@ class AudioSeparatorRunPodClient:
                     elif response_json['status'] == 'FAILED':
                         print("작업이 실패했습니다.")
                         return {"error": "Job failed", "details": response_json}
+                    else:
+                        # 상태가 명확하지 않은 경우, 응답에 output_files가 있는지 확인
+                        if 'output_files' in response_json:
+                            print("응답에 출력 파일이 있습니다. 작업 완료로 판단합니다.")
+                            return response_json
+                        else:
+                            print(f"알 수 없는 상태: {response_json['status']}")
+                            return response_json
                         
             except Exception as e:
                 print(f"응답 JSON 파싱 실패: {e}")
@@ -168,6 +178,11 @@ class AudioSeparatorRunPodClient:
             print(f"청크 인코딩 오류: {e}")
             print("💡 해결 방법: 파일 크기를 줄이거나 네트워크 연결을 확인해주세요.")
             return {"error": f"Chunked encoding error: {e}"}
+        except requests.exceptions.HTTPError as e:
+            print(f"HTTP 오류: {e}")
+            print(f"HTTP 상태 코드: {e.response.status_code}")
+            print(f"HTTP 응답 내용: {e.response.text}")
+            return {"error": f"HTTP error: {e}"}
         except requests.exceptions.RequestException as e:
             print(f"고급 오디오 분리 실패: {e}")
             print(f"요청 예외 타입: {type(e)}")
@@ -179,13 +194,13 @@ class AudioSeparatorRunPodClient:
             print(f"오류 상세: {traceback.format_exc()}")
             return {"error": str(e)}
     
-    def _wait_for_sync_response(self, payload: Dict[str, Any], max_wait_time: int = 600) -> Dict[str, Any]:
+    def _wait_for_sync_response(self, payload: Dict[str, Any], max_wait_time: int = 1800) -> Dict[str, Any]:
         """
         동기식 응답을 기다립니다.
         
         Args:
             payload: 원본 요청 데이터
-            max_wait_time: 최대 대기 시간 (초)
+            max_wait_time: 최대 대기 시간 (초) - 30분으로 증가
             
         Returns:
             완료된 작업 결과
@@ -209,7 +224,17 @@ class AudioSeparatorRunPodClient:
             response.raise_for_status()
             result = response.json()
             print(f"동기식 응답 내용: {result}")
-            return result
+            
+            # 응답에 output_files가 있는지 확인
+            if 'output_files' in result and result['output_files']:
+                print("✅ 출력 파일이 응답에 포함되어 있습니다!")
+                return result
+            elif 'status' in result and result['status'] == 'COMPLETED':
+                print("✅ 작업이 완료되었습니다!")
+                return result
+            else:
+                print(f"⚠️ 응답에 출력 파일이 없습니다. 상태: {result.get('status', 'UNKNOWN')}")
+                return result
             
         except requests.exceptions.Timeout:
             print("동기식 응답 대기 시간 초과")
