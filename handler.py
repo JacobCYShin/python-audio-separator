@@ -43,6 +43,7 @@ def load_separator():
                 amplification_threshold=0.0,
                 use_autocast=True  # GPU 가속 사용
             )
+            logger.info(f"Separator output_dir 설정: {separator.output_dir}")
             
             # 필요한 모델들이 다운로드되어 있는지 확인하고 없으면 다운로드
             required_models = [
