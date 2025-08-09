@@ -37,11 +37,19 @@ COPY . /workspace/
 RUN pip install -r requirements.txt
 
 # 모델 캐시 디렉토리 생성
-RUN mkdir -p /tmp/audio-separator-models
-RUN mkdir -p /tmp/output
+RUN mkdir -p /tmp/audio-separator-models \
+    && mkdir -p /tmp/output
 
-# 모델 다운로드를 위한 테스트 실행 (빌드 시점)
-RUN LOCAL_TEST=true python3 handler.py
+# 빌드 타임 모델 로딩/실행 제거 (런타임에서 초기화)
+# RUN LOCAL_TEST=true python3 handler.py
+
+# 런포드 환경 변수 기본값
+ENV RP_HANDLER_TIMEOUT=900 \
+    RP_UPLOAD_ENABLE=true \
+    RP_VERBOSE=true
+
+# 헬스체크 (서버가 시작되었는지 간단 확인)
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD pgrep -f "handler.py" || exit 1
 
 # 포트 노출
 EXPOSE 8000

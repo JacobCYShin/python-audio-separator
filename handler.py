@@ -14,6 +14,12 @@ from audio_separator.separator import Separator
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# RunPod 업로드 유틸리티 (URL 반환용)
+try:
+    from runpod.serverless.utils import rp_upload
+except Exception:  # 로컬 환경 대비
+    rp_upload = None
+
 # 전역 변수로 Separator 인스턴스 저장 (Cold start 최적화)
 separator = None
 
@@ -58,6 +64,40 @@ def load_separator():
             logger.error(f"모델 로딩 실패: {str(e)}")
             raise
     return separator
+
+def _encode_outputs_as_base64(file_paths: list[str]) -> Dict[str, str]:
+    """출력 파일을 base64로 인코딩하여 반환합니다."""
+    result_files: Dict[str, str] = {}
+    for output_file in file_paths:
+        if os.path.exists(output_file):
+            with open(output_file, "rb") as f:
+                file_data = f.read()
+                file_name = os.path.basename(output_file)
+                result_files[file_name] = base64.b64encode(file_data).decode('utf-8')
+        else:
+            logger.warning(f"파일이 존재하지 않습니다: {output_file}")
+    return result_files
+
+def _upload_outputs_and_get_urls(file_paths: list[str]) -> Dict[str, str]:
+    """출력 파일을 업로드하고 공개 URL을 반환합니다."""
+    if rp_upload is None:
+        raise RuntimeError("rp_upload 모듈을 사용할 수 없습니다. 런포드 서버리스 환경에서 실행해 주세요.")
+
+    uploaded_files: Dict[str, str] = {}
+    for output_file in file_paths:
+        if os.path.exists(output_file):
+            try:
+                upload_result = rp_upload.upload_file(output_file)
+                # upload_result 예: { 'file_id': str, 'url'|'link': str }
+                url_value = upload_result.get('url') or upload_result.get('link')
+                uploaded_files[os.path.basename(output_file)] = url_value
+                logger.info(f"업로드 완료: {output_file} -> {url_value}")
+            except Exception as e:
+                logger.error(f"파일 업로드 실패: {output_file} - {e}")
+                raise
+        else:
+            logger.warning(f"파일이 존재하지 않습니다: {output_file}")
+    return uploaded_files
 
 def handler(job):
     """
@@ -131,6 +171,7 @@ def handle_separate_audio(job_input):
         model_filename = job_input.get("model_filename", "Kim_Vocal_1.onnx")  # 기본 모델 변경
         output_format = job_input.get("output_format", "WAV")
         custom_output_names = job_input.get("custom_output_names", None)
+        return_type = job_input.get("return_type", "url")  # 'url' | 'base64'
         
         # Separator 인스턴스 로드
         separator_instance = load_separator()
@@ -162,21 +203,24 @@ def handle_separate_audio(job_input):
             
             logger.info(f"분리 완료. 출력 파일: {output_files}")
             
-            # 결과 파일들을 base64로 인코딩
-            result_files = {}
-            for output_file in output_files:
-                if os.path.exists(output_file):
-                    with open(output_file, "rb") as f:
-                        file_data = f.read()
-                        file_name = os.path.basename(output_file)
-                        result_files[file_name] = base64.b64encode(file_data).decode('utf-8')
-            
-            return {
-                "success": True,
-                "message": "Audio separation completed successfully",
-                "output_files": result_files,
-                "model_used": model_filename
-            }
+            if return_type == "base64":
+                result_files = _encode_outputs_as_base64(output_files)
+                return {
+                    "success": True,
+                    "message": "Audio separation completed successfully",
+                    "output_files": result_files,
+                    "model_used": model_filename,
+                    "return_type": "base64"
+                }
+            else:
+                uploaded_urls = _upload_outputs_and_get_urls(output_files)
+                return {
+                    "success": True,
+                    "message": "Audio separation completed successfully",
+                    "output_urls": uploaded_urls,
+                    "model_used": model_filename,
+                    "return_type": "url"
+                }
             
     except Exception as e:
         logger.error(f"오디오 분리 오류: {str(e)}")
@@ -199,6 +243,7 @@ def handle_advanced_separate(job_input):
         # 요청 파라미터 추출
         audio_data = job_input["audio_data"]
         output_format = job_input.get("output_format", "WAV")
+        return_type = job_input.get("return_type", "url")  # 'url' | 'base64'
         
         # Separator 인스턴스 로드
         separator_instance = load_separator()
@@ -214,16 +259,6 @@ def handle_advanced_separate(job_input):
                 f.write(audio_bytes)
             
             logger.info(f"입력 오디오 파일 생성: {input_file}")
-            
-            # 출력 파일 경로 정의
-            vocals_path = os.path.join(temp_dir, "Vocals.wav")
-            instrumental_path = os.path.join(temp_dir, "Instrumental.wav")
-            lead_vocals_path = os.path.join(temp_dir, "Lead_Vocals.wav")
-            backing_vocals_path = os.path.join(temp_dir, "Backing_Vocals.wav")
-            lead_vocals_reverb_path = os.path.join(temp_dir, "Vocals_Reverb.wav")
-            lead_vocals_no_reverb_path = os.path.join(temp_dir, "Vocals_No_Reverb.wav")
-            lead_vocals_noise_path = os.path.join(temp_dir, "Vocals_Noise.wav")
-            lead_vocals_no_noise_path = os.path.join(temp_dir, "Vocals_No_Noise.wav")
             
             # Step 1: Vocals / Instrumental 분리
             logger.info("[Step 1] Vocals / Instrumental 분리")
@@ -243,6 +278,8 @@ def handle_advanced_separate(job_input):
                 instrumental_path = voc_inst[0]
                 vocals_path = voc_inst[1]
                 logger.info(f"Step 1 파일 경로 설정: {instrumental_path}, {vocals_path}")
+            else:
+                raise RuntimeError("Step 1 결과 파일이 충분하지 않습니다.")
             
             # Step 2: Lead / Backing Vocal 분리
             logger.info("[Step 2] Lead / Backing Vocal 분리")
@@ -254,6 +291,8 @@ def handle_advanced_separate(job_input):
                 backing_vocals_path = backing_voc[0]
                 lead_vocals_path = backing_voc[1]
                 logger.info(f"Step 2 파일 경로 설정: {backing_vocals_path}, {lead_vocals_path}")
+            else:
+                raise RuntimeError("Step 2 결과 파일이 충분하지 않습니다.")
             
             # Step 3: DeReverb (잔향 제거)
             logger.info("[Step 3] DeReverb 처리")
@@ -265,6 +304,8 @@ def handle_advanced_separate(job_input):
                 lead_vocals_no_reverb_path = voc_no_reverb[0]
                 lead_vocals_reverb_path = voc_no_reverb[1]
                 logger.info(f"Step 3 파일 경로 설정: {lead_vocals_no_reverb_path}, {lead_vocals_reverb_path}")
+            else:
+                raise RuntimeError("Step 3 결과 파일이 충분하지 않습니다.")
             
             # Step 4: Denoise (노이즈 제거)
             logger.info("[Step 4] Denoise 처리")
@@ -276,38 +317,51 @@ def handle_advanced_separate(job_input):
                 lead_vocals_noise_path = voc_no_noise[0]
                 lead_vocals_no_noise_path = voc_no_noise[1]
                 logger.info(f"Step 4 파일 경로 설정: {lead_vocals_noise_path}, {lead_vocals_no_noise_path}")
+            else:
+                raise RuntimeError("Step 4 결과 파일이 충분하지 않습니다.")
             
-            # 결과 파일들을 base64로 인코딩 (생성된 파일 그대로 사용)
-            result_files = {}
-            output_files = [
-                ("Instrumental.wav", instrumental_path),
-                ("Vocals_No_Noise.wav", lead_vocals_no_noise_path)
+            # 결과 반환 방식 분기
+            final_output_paths = [
+                instrumental_path,
+                lead_vocals_no_noise_path
             ]
-            
-            for filename, file_path in output_files:
-                if os.path.exists(file_path):
-                    with open(file_path, "rb") as f:
-                        file_data = f.read()
-                        result_files[filename] = base64.b64encode(file_data).decode('utf-8')
-                        logger.info(f"파일 인코딩 완료: {filename}")
-                else:
-                    logger.warning(f"파일이 존재하지 않습니다: {file_path}")
-            
-            return {
-                "success": True,
-                "message": "Advanced audio separation completed successfully",
-                "output_files": result_files,
-                "steps_completed": [
-                    "Vocals/Instrumental separation",
-                    "Lead/Backing vocal separation", 
-                    "DeReverb processing",
-                    "Denoise processing"
-                ],
-                "final_outputs": [
-                    "Instrumental.wav - 분리된 반주",
-                    "Vocals_No_Noise.wav - 노이즈 제거된 보컬"
-                ]
-            }
+
+            if return_type == "base64":
+                result_files = _encode_outputs_as_base64(final_output_paths)
+                return {
+                    "success": True,
+                    "message": "Advanced audio separation completed successfully",
+                    "output_files": result_files,
+                    "steps_completed": [
+                        "Vocals/Instrumental separation",
+                        "Lead/Backing vocal separation", 
+                        "DeReverb processing",
+                        "Denoise processing"
+                    ],
+                    "final_outputs": [
+                        "Instrumental.wav - 분리된 반주",
+                        "Vocals_No_Noise.wav - 노이즈 제거된 보컬"
+                    ],
+                    "return_type": "base64"
+                }
+            else:
+                uploaded_urls = _upload_outputs_and_get_urls(final_output_paths)
+                return {
+                    "success": True,
+                    "message": "Advanced audio separation completed successfully",
+                    "output_urls": uploaded_urls,
+                    "steps_completed": [
+                        "Vocals/Instrumental separation",
+                        "Lead/Backing vocal separation", 
+                        "DeReverb processing",
+                        "Denoise processing"
+                    ],
+                    "final_outputs": [
+                        "Instrumental.wav - 분리된 반주",
+                        "Vocals_No_Noise.wav - 노이즈 제거된 보컬"
+                    ],
+                    "return_type": "url"
+                }
             
     except Exception as e:
         logger.error(f"고급 오디오 분리 오류: {str(e)}")
