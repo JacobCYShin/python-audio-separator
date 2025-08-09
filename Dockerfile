@@ -10,8 +10,6 @@ RUN apt-get install -y python3 python3-pip python3-venv
 # 필수 패키지 설치
 RUN apt-get install -y \
     ffmpeg \
-    cuda-toolkit \
-    cudnn9-cuda-12 \
     wget \
     curl
 
@@ -36,17 +34,19 @@ COPY . /workspace/
 # Python 의존성 설치
 RUN pip install -r requirements.txt
 
-# 모델 캐시 디렉토리 생성
+# 모델/출력 디렉토리 생성
 RUN mkdir -p /tmp/audio-separator-models \
-    && mkdir -p /tmp/output
+    && mkdir -p /workspace/output_results
 
 # 빌드 타임 모델 로딩/실행 제거 (런타임에서 초기화)
 # RUN LOCAL_TEST=true python3 handler.py
 
-# 런포드 환경 변수 기본값
+# 런포드/앱 환경 변수 기본값
 ENV RP_HANDLER_TIMEOUT=900 \
     RP_UPLOAD_ENABLE=true \
-    RP_VERBOSE=true
+    RP_VERBOSE=true \
+    PRELOAD_MODELS=false \
+    OUTPUT_DIR=/workspace/output_results/
 
 # 헬스체크 (서버가 시작되었는지 간단 확인)
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD pgrep -f "handler.py" || exit 1

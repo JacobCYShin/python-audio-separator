@@ -29,10 +29,15 @@ def load_separator():
     if separator is None:
         try:
             logger.info("Separator 인스턴스를 초기화하고 모델을 로드합니다...")
+
+            # 출력 디렉토리 환경변수 우선 적용
+            output_dir = os.getenv("OUTPUT_DIR", "/workspace/output_results/")
+            os.makedirs(output_dir, exist_ok=True)
+
             separator = Separator(
                 log_level=logging.INFO,
                 model_file_dir="/tmp/audio-separator-models/",
-                output_dir="/tmp/output/",
+                output_dir=output_dir,
                 output_format="WAV",
                 normalization_threshold=0.9,
                 amplification_threshold=0.0,
@@ -98,6 +103,25 @@ def _upload_outputs_and_get_urls(file_paths: list[str]) -> Dict[str, str]:
         else:
             logger.warning(f"파일이 존재하지 않습니다: {output_file}")
     return uploaded_files
+
+def _resolve_single_path(path: str, candidate_dirs: list[str]) -> str:
+    """상대 경로로 전달된 파일을 후보 디렉토리에서 찾아 절대 경로로 반환."""
+    if not path:
+        return path
+    if os.path.isabs(path) and os.path.exists(path):
+        return path
+    # 그대로 존재하는지 먼저 확인
+    if os.path.exists(path):
+        return os.path.abspath(path)
+    for d in candidate_dirs:
+        candidate = os.path.join(d, path)
+        if os.path.exists(candidate):
+            return candidate
+    logger.warning(f"파일 경로 해석 실패: {path} (후보: {candidate_dirs})")
+    return path
+
+def _resolve_paths(paths: list[str], candidate_dirs: list[str]) -> list[str]:
+    return [_resolve_single_path(p, candidate_dirs) for p in paths]
 
 def handler(job):
     """
@@ -202,9 +226,18 @@ def handle_separate_audio(job_input):
             )
             
             logger.info(f"분리 완료. 출력 파일: {output_files}")
+
+            # 반환된 상대 경로를 실제 파일 경로로 해석
+            candidate_dirs = [
+                getattr(separator_instance, "output_dir", "/tmp/output/"),
+                os.getcwd(),
+                temp_dir,
+            ]
+            resolved_outputs = _resolve_paths(output_files, candidate_dirs)
+            logger.info(f"해석된 출력 경로: {resolved_outputs}")
             
             if return_type == "base64":
-                result_files = _encode_outputs_as_base64(output_files)
+                result_files = _encode_outputs_as_base64(resolved_outputs)
                 return {
                     "success": True,
                     "message": "Audio separation completed successfully",
@@ -213,7 +246,7 @@ def handle_separate_audio(job_input):
                     "return_type": "base64"
                 }
             else:
-                uploaded_urls = _upload_outputs_and_get_urls(output_files)
+                uploaded_urls = _upload_outputs_and_get_urls(resolved_outputs)
                 return {
                     "success": True,
                     "message": "Audio separation completed successfully",
@@ -260,6 +293,13 @@ def handle_advanced_separate(job_input):
             
             logger.info(f"입력 오디오 파일 생성: {input_file}")
             
+            # Path 해석을 위한 후보 디렉토리
+            candidate_dirs = [
+                getattr(separator_instance, "output_dir", "/tmp/output/"),
+                os.getcwd(),
+                temp_dir,
+            ]
+            
             # Step 1: Vocals / Instrumental 분리
             logger.info("[Step 1] Vocals / Instrumental 분리")
             try:
@@ -275,8 +315,10 @@ def handle_advanced_separate(job_input):
             
             # 파일 경로 설정 (이동 없이 생성된 파일 그대로 사용)
             if len(voc_inst) >= 2:
-                instrumental_path = voc_inst[0]
-                vocals_path = voc_inst[1]
+                instrumental_path_raw = voc_inst[0]
+                vocals_path_raw = voc_inst[1]
+                instrumental_path = _resolve_single_path(instrumental_path_raw, candidate_dirs)
+                vocals_path = _resolve_single_path(vocals_path_raw, candidate_dirs)
                 logger.info(f"Step 1 파일 경로 설정: {instrumental_path}, {vocals_path}")
             else:
                 raise RuntimeError("Step 1 결과 파일이 충분하지 않습니다.")
@@ -288,8 +330,8 @@ def handle_advanced_separate(job_input):
             logger.info(f"Lead/Backing Vocal 분리 완료: {len(backing_voc)}개 파일 생성")
             
             if len(backing_voc) >= 2:
-                backing_vocals_path = backing_voc[0]
-                lead_vocals_path = backing_voc[1]
+                backing_vocals_path = _resolve_single_path(backing_voc[0], candidate_dirs)
+                lead_vocals_path = _resolve_single_path(backing_voc[1], candidate_dirs)
                 logger.info(f"Step 2 파일 경로 설정: {backing_vocals_path}, {lead_vocals_path}")
             else:
                 raise RuntimeError("Step 2 결과 파일이 충분하지 않습니다.")
@@ -301,8 +343,8 @@ def handle_advanced_separate(job_input):
             logger.info(f"DeReverb 처리 완료: {len(voc_no_reverb)}개 파일 생성")
             
             if len(voc_no_reverb) >= 2:
-                lead_vocals_no_reverb_path = voc_no_reverb[0]
-                lead_vocals_reverb_path = voc_no_reverb[1]
+                lead_vocals_no_reverb_path = _resolve_single_path(voc_no_reverb[0], candidate_dirs)
+                lead_vocals_reverb_path = _resolve_single_path(voc_no_reverb[1], candidate_dirs)
                 logger.info(f"Step 3 파일 경로 설정: {lead_vocals_no_reverb_path}, {lead_vocals_reverb_path}")
             else:
                 raise RuntimeError("Step 3 결과 파일이 충분하지 않습니다.")
@@ -314,8 +356,8 @@ def handle_advanced_separate(job_input):
             logger.info(f"Denoise 처리 완료: {len(voc_no_noise)}개 파일 생성")
             
             if len(voc_no_noise) >= 2:
-                lead_vocals_noise_path = voc_no_noise[0]
-                lead_vocals_no_noise_path = voc_no_noise[1]
+                lead_vocals_noise_path = _resolve_single_path(voc_no_noise[0], candidate_dirs)
+                lead_vocals_no_noise_path = _resolve_single_path(voc_no_noise[1], candidate_dirs)
                 logger.info(f"Step 4 파일 경로 설정: {lead_vocals_noise_path}, {lead_vocals_no_noise_path}")
             else:
                 raise RuntimeError("Step 4 결과 파일이 충분하지 않습니다.")
@@ -373,9 +415,12 @@ def handle_advanced_separate(job_input):
 
 # Cold start 최적화: 컨테이너 시작 시 모델 미리 로드
 try:
-    logger.info("컨테이너 시작 시 모델 미리 로드 중...")
-    load_separator()
-    logger.info("Cold start 최적화 완료")
+    if os.getenv("PRELOAD_MODELS", "false").lower() == "true":
+        logger.info("컨테이너 시작 시 모델 미리 로드 중...")
+        load_separator()
+        logger.info("Cold start 최적화 완료")
+    else:
+        logger.info("PRELOAD_MODELS=false: 런타임 최초 요청 시 로드")
 except Exception as e:
     logger.error(f"Cold start 최적화 실패: {str(e)}")
 
