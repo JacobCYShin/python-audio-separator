@@ -4,6 +4,7 @@ import base64
 import tempfile
 import logging
 import shutil
+import time
 from typing import Dict, Any, Optional
 import traceback
 
@@ -143,7 +144,6 @@ def _download_from_s3(s3_url: str) -> str:
             raise RuntimeError("S3 클라이언트를 초기화할 수 없습니다")
         
         # 임시 파일 생성
-        import tempfile
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.wav')
         temp_file_path = temp_file.name
         temp_file.close()
@@ -167,7 +167,6 @@ def _upload_to_s3(file_path: str, file_type: str = "audio") -> str:
             raise RuntimeError("S3 클라이언트를 초기화할 수 없습니다")
         
         # S3 키 생성 (타임스탬프 포함)
-        import time
         timestamp = int(time.time())
         file_name = os.path.basename(file_path)
         
@@ -372,7 +371,7 @@ def handle_advanced_separate(job_input):
             candidate_dirs = [
                 getattr(separator_instance, "output_dir", "/tmp/output/"),
                 os.getcwd(),
-                temp_dir,
+                os.path.dirname(input_file),
             ]
             
             # Step 1: Vocals / Instrumental 분리

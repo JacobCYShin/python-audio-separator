@@ -19,6 +19,17 @@ from typing import Dict, Any, Optional
 from urllib.parse import urlparse
 from botocore.exceptions import ClientError, NoCredentialsError
 
+# python-dotenv를 사용하여 .env 파일 로드
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+    print(".env 파일을 로드했습니다.")
+except ImportError:
+    print("python-dotenv가 설치되지 않았습니다. pip install python-dotenv로 설치해주세요.")
+    print("환경변수를 직접 설정해주세요.")
+except Exception as e:
+    print(f".env 파일 로드 중 오류: {e}")
+
 # AWS S3 설정 (환경변수에서 가져오기)
 AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
 AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
