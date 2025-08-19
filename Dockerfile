@@ -38,6 +38,9 @@ RUN pip install -r requirements.txt
 RUN mkdir -p /tmp/audio-separator-models \
     && mkdir -p /workspace/output_results
 
+# 체크포인트 모델 미리 다운로드 (빌드 타임)
+RUN python3 test_uvr_separator.py
+
 # 빌드 타임 모델 로딩/실행 제거 (런타임에서 초기화)
 # RUN LOCAL_TEST=true python3 handler.py
 

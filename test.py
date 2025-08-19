@@ -4,7 +4,7 @@ from audio_separator.separator import Separator
 import os
 
 # 출력 디렉토리 설정 (실제로는 중요하지 않음, 모델 캐시를 위한 용도)
-output_dir = "models"
+output_dir = "/tmp/audio-separator-models"
 os.makedirs(output_dir, exist_ok=True)
 
 # Separator 인스턴스 초기화
