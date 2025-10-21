@@ -171,9 +171,9 @@ def _upload_to_s3(file_path: str, file_type: str = "audio") -> str:
         file_name = os.path.basename(file_path)
         
         if file_type == "audio":
-            s3_key = f"generated-audios/{timestamp}_{file_name}"
+            s3_key = f"audios/generated-audios/{timestamp}_{file_name}"
         else:
-            s3_key = f"generated-images/{timestamp}_{file_name}"
+            s3_key = f"images/generated-images/{timestamp}_{file_name}"
         
         # S3에 업로드
         s3_client.upload_file(file_path, S3_BUCKET_NAME, s3_key)
