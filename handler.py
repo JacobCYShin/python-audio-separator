@@ -27,7 +27,7 @@ except Exception:  # 로컬 환경 대비
 AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
 AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
 AWS_REGION = os.getenv('AWS_REGION', 'ap-northeast-2')
-S3_BUCKET_NAME = os.getenv('S3_BUCKET_NAME', 'likebutter-bucket')
+S3_BUCKET_NAME = os.getenv('S3_BUCKET_NAME', 'likebutter-prod-storage')
 
 # S3 클라이언트 초기화
 def get_s3_client():
