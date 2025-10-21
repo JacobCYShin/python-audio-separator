@@ -26,7 +26,7 @@ except Exception:  # 로컬 환경 대비
 # AWS S3 설정 (환경변수에서 가져오기)
 AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
 AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
-AWS_REGION = os.getenv('AWS_REGION', 'us-east-1')
+AWS_REGION = os.getenv('AWS_REGION', 'ap-northeast-2')
 S3_BUCKET_NAME = os.getenv('S3_BUCKET_NAME', 'likebutter-bucket')
 
 # S3 클라이언트 초기화
@@ -171,7 +171,7 @@ def _upload_to_s3(file_path: str, file_type: str = "audio") -> str:
         file_name = os.path.basename(file_path)
         
         if file_type == "audio":
-            s3_key = f"audios/generated-audios/{timestamp}_{file_name}"
+            s3_key = f"audios/separated-audios/{timestamp}_{file_name}"
         else:
             s3_key = f"images/generated-images/{timestamp}_{file_name}"
         
